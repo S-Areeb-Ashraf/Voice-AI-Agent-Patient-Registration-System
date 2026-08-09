@@ -8,35 +8,7 @@ This repository contains a full-stack clinical intake system comprising a **Fast
 
 The following flow illustrates how data is processed in this system:
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor Caller as Caller (Patient)
-    participant Vapi as Vapi (Gemini LLM & Telephony)
-    participant API as FastAPI Web Service
-    database DB as Supabase Postgres
 
-    Caller->>Vapi: Dials phone number & speaks naturally
-    Vapi->>API: Mid-call tool lookup_patient_by_phone(phone_number)
-    API->>DB: Query by normalized phone number
-    DB-->>API: Return match status / info
-    API-->>Vapi: Return JSON results (read aloud by LLM)
-    Note over Vapi,Caller: Conversation continues; LLM collects details
-    Caller->>Vapi: Confirms information is accurate
-    Vapi->>API: Mid-call tool create_patient(full_fields)
-    API->>API: Run server-side regex & logic validations
-    alt Validation Fails
-        API-->>Vapi: Return validation error details
-        Vapi->>Caller: Reports error & re-prompts for specific field
-    else Validation Passes
-        API->>DB: Insert patient record
-        DB-->>API: Confirm save
-        API-->>Vapi: Return success message & patient_id
-        Vapi->>Caller: "You're all set, [First Name]!" and hangs up
-    end
-    Vapi->>API: Webhook: POST /vapi-webhook/events (end-of-call-report)
-    API->>DB: Save transcript & call summary linked to patient_id
-```
 
 ### Flow Descriptions
 1. **Mid-Call Integrations**: During the telephone conversation, Vapi makes POST requests to the FastAPI route `POST /vapi-tools/handle` with specific tool arguments. FastAPI executes database queries and server validations, and returns responses. The LLM translates the JSON responses into conversational speech for the caller.
