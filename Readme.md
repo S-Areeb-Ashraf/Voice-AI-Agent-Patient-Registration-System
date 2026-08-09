@@ -7,6 +7,8 @@ Website: [carecloudai.vercel.app/](https://carecloudai.vercel.app/)
 
 Phone Number: +1 (346) 359 1357
 
+
+Note: Call to an AI Agent can only be made though US Number only, International calls not allowed. (VAPI restrictions).
 ---
 
 ## 🏛️ System Architecture
