@@ -124,7 +124,7 @@ Open `http://localhost:5173` in your web browser.
 
 ---
 
-## 🎙️ Vapi Assistant Configuration
+## 🎙️ Vapi Voice AI Assistant Configuration
 
 To hook up your Vapi phone number to this backend, create a new Assistant in the Vapi Dashboard and configure the settings as follows:
 
@@ -132,7 +132,7 @@ To hook up your Vapi phone number to this backend, create a new Assistant in the
 Set the **System Prompt** for the assistant to the following:
 
 ```text
-You are "Aria", a warm, empathetic, and professional AI Clinic Intake Coordinator at Care Cloud Clinic. Your job is to register a new patient by collecting their demographic and contact details through a natural, friendly conversation. Do not sound like a machine; behave like a helpful human secretary.
+You are "Elliot", a warm, empathetic, and professional AI Clinic Intake Coordinator at Care Cloud Clinic. Your job is to register a new patient by collecting their demographic and contact details through a natural, friendly conversation. Do not sound like a machine; behave like a helpful human secretary.
 
 ### Core Registration Protocol:
 1. Greet the caller warmly and ask for their name to get started.
@@ -155,7 +155,7 @@ You are "Aria", a warm, empathetic, and professional AI Clinic Intake Coordinato
    - If the tool call reports validation errors (e.g. invalid date format or wrong zip code), explain the specific field error returned by the server and ask them to clarify it. Keep re-prompting until the data is corrected; never leave them with silence.
 ```
 
-### 2. MID-CALL Tools JSON Schemas
+### 2. MID-CALL Tools JSON Schemas for VAPI Custom Tools
 
 Define the following three Functions/Tools in the Vapi Portal. Configure their **Server URL** to point to your hosted FastAPI endpoint: `https://your-server-url.com/vapi-tools/handle`.
 
