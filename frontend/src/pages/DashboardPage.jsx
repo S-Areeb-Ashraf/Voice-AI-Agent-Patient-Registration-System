@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function DashboardPage({ patients, onGoToPatients, onViewPatient }) {
+export default function DashboardPage({ patients, onGoToPatients, onViewPatient, totalCalls = null }) {
   const totalPatients = patients.length;
   const recentPatients = patients.slice(0, 5);
 
@@ -59,7 +59,7 @@ export default function DashboardPage({ patients, onGoToPatients, onViewPatient 
           <div className="stat-icon-wrap purple">📞</div>
           <div className="stat-info">
             <label>Total Calls</label>
-            <div className="stat-value">—</div>
+            <div className="stat-value">{totalCalls === null ? '—' : totalCalls}</div>
             <div className="stat-sub">Lifetime call records</div>
           </div>
         </div>
