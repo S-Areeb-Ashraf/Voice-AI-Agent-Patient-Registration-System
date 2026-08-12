@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import patients, vapi_tools, vapi_webhook
+from app.routers import patients, vapi_tools, vapi_webhook, calls
 from app.utils.logging_config import logger
 
 app = FastAPI(
@@ -14,7 +14,8 @@ app = FastAPI(
 )
 
 # Configure CORS origins
-origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+# origins = [o.strip() for o in settings.ALLOWED_ORIGINS.split(",") if o.strip()]
+origins = settings.ALLOWED_ORIGINS.split(",")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -70,6 +71,7 @@ async def generic_exception_handler(request: Request, exc: Exception):
 app.include_router(patients.router)
 app.include_router(vapi_tools.router)
 app.include_router(vapi_webhook.router)
+app.include_router(calls.router)
 
 @app.get("/")
 def read_root():
