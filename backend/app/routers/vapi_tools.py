@@ -142,11 +142,464 @@
 #     return {"results": results}
 
 
-#  new version
+#  new version -----------------------------------------------------------------------------------------first new-------------------------
+
+# import json
+# import uuid
+# from typing import List, Dict, Any, Optional
+
+# from fastapi import APIRouter, Depends
+# from sqlalchemy.orm import Session
+# from pydantic import BaseModel, ValidationError
+
+# from app.database import get_db
+# from app.services import patient_service
+# from app.schemas import PatientCreate, PatientUpdate
+
+
+# router = APIRouter(prefix="/vapi-tools", tags=["vapi"])
+
+
+# # ============================================================
+# # VAPI TOOL CALL MODELS
+# # ============================================================
+
+# class VapiFunction(BaseModel):
+#     name: str
+#     arguments: str
+
+
+# class VapiToolCall(BaseModel):
+#     id: str
+#     type: str
+#     function: VapiFunction
+
+
+# class ToolMessage(BaseModel):
+#     toolCalls: List[VapiToolCall]
+
+
+# class VapiToolPayload(BaseModel):
+#     message: ToolMessage
+
+
+# # ============================================================
+# # VAPI TOOL HANDLER
+# # ============================================================
+
+# @router.post("/handle")
+# def handle_vapi_tools(
+#     payload: VapiToolPayload,
+#     db: Session = Depends(get_db)
+# ):
+#     """
+#     Handles Vapi function/tool calls.
+
+#     Expected Vapi payload:
+
+#     {
+#         "message": {
+#             "toolCalls": [
+#                 {
+#                     "id": "jvyqcpnp",
+#                     "type": "function",
+#                     "function": {
+#                         "name": "lookup_patient_by_phone",
+#                         "arguments": "{\"phone_number\":\"...\"}"
+#                     }
+#                 }
+#             ]
+#         }
+#     }
+
+#     Returns:
+
+#     {
+#         "results": [
+#             {
+#                 "toolCallId": "...",
+#                 "result": "..."
+#             }
+#         ]
+#     }
+#     """
+
+#     results = []
+
+#     # ========================================================
+#     # PROCESS EACH TOOL CALL
+#     # ========================================================
+
+#     for tool_call in payload.message.toolCalls:
+
+#         tool_id = tool_call.id
+#         tool_name = tool_call.function.name
+#         raw_arguments = tool_call.function.arguments
+
+#         # ----------------------------------------------------
+#         # Parse arguments
+#         # ----------------------------------------------------
+
+#         try:
+#             if isinstance(raw_arguments, str):
+#                 args = json.loads(raw_arguments)
+#             else:
+#                 args = raw_arguments
+
+#         except json.JSONDecodeError as e:
+
+#             results.append({
+#                 "toolCallId": tool_id,
+#                 "result": json.dumps({
+#                     "success": False,
+#                     "error": f"Invalid tool arguments JSON: {str(e)}"
+#                 })
+#             })
+
+#             continue
+
+#         # ----------------------------------------------------
+#         # Make sure arguments are a dictionary
+#         # ----------------------------------------------------
+
+#         if not isinstance(args, dict):
+
+#             results.append({
+#                 "toolCallId": tool_id,
+#                 "result": json.dumps({
+#                     "success": False,
+#                     "error": "Tool arguments must be a JSON object."
+#                 })
+#             })
+
+#             continue
+
+#         # ----------------------------------------------------
+#         # Execute tool
+#         # ----------------------------------------------------
+
+#         try:
+
+#             # =================================================
+#             # LOOKUP PATIENT BY PHONE
+#             # =================================================
+
+#             if tool_name == "lookup_patient_by_phone":
+
+#                 phone = args.get("phone_number")
+
+#                 if not phone:
+
+#                     result_dict = {
+#                         "success": False,
+#                         "error": "phone_number is required"
+#                     }
+
+#                 else:
+
+#                     patient = patient_service.get_patient_by_phone(
+#                         db,
+#                         phone
+#                     )
+
+#                     if patient:
+
+#                         result_dict = {
+#                             "found": True,
+#                             "patient_id": str(patient.patient_id),
+#                             "first_name": patient.first_name,
+#                             "last_name": patient.last_name
+#                         }
+
+#                     else:
+
+#                         result_dict = {
+#                             "found": False
+#                         }
+
+#                 result_str = json.dumps(result_dict)
+
+#             # =================================================
+#             # CREATE PATIENT
+#             # =================================================
+
+#             elif tool_name == "create_patient":
+
+#                 try:
+
+#                     # Remove empty optional fields
+#                     cleaned_args = {
+#                         key: value
+#                         for key, value in args.items()
+#                         if value is not None and value != ""
+#                     }
+
+#                     # Validate using your existing schema
+#                     patient_create = PatientCreate(
+#                         **cleaned_args
+#                     )
+
+#                     # Check duplicate phone number
+#                     existing = patient_service.get_patient_by_phone(
+#                         db,
+#                         patient_create.phone_number
+#                     )
+
+#                     if existing:
+
+#                         result_dict = {
+#                             "success": False,
+#                             "error": (
+#                                 f"A patient with phone number "
+#                                 f"{patient_create.phone_number} "
+#                                 f"already exists as "
+#                                 f"{existing.first_name} "
+#                                 f"{existing.last_name}."
+#                             )
+#                         }
+
+#                     else:
+
+#                         patient = patient_service.create_patient(
+#                             db,
+#                             patient_create
+#                         )
+
+#                         result_dict = {
+#                             "success": True,
+#                             "patient_id": str(
+#                                 patient.patient_id
+#                             ),
+#                             "message": (
+#                                 "Patient created successfully"
+#                             )
+#                         }
+
+#                 except ValidationError as ve:
+
+#                     errors = []
+
+#                     for error in ve.errors():
+
+#                         loc_name = " -> ".join(
+#                             str(location)
+#                             for location in error["loc"]
+#                         )
+
+#                         msg = error["msg"]
+
+#                         if msg.startswith("Value error, "):
+#                             msg = msg.replace(
+#                                 "Value error, ",
+#                                 "",
+#                                 1
+#                             )
+
+#                         errors.append(
+#                             f"{loc_name}: {msg}"
+#                         )
+
+#                     result_dict = {
+#                         "success": False,
+#                         "error": (
+#                             "Validation failed: "
+#                             + "; ".join(errors)
+#                         )
+#                     }
+
+#                 except ValueError as ve:
+
+#                     result_dict = {
+#                         "success": False,
+#                         "error": str(ve)
+#                     }
+
+#                 except Exception as e:
+
+#                     result_dict = {
+#                         "success": False,
+#                         "error": (
+#                             "Database write failure: "
+#                             f"{str(e)}"
+#                         )
+#                     }
+
+#                 result_str = json.dumps(result_dict)
+
+#             # =================================================
+#             # UPDATE PATIENT
+#             # =================================================
+
+#             elif tool_name == "update_patient":
+
+#                 patient_id_str = args.get(
+#                     "patient_id"
+#                 )
+
+#                 if not patient_id_str:
+
+#                     result_dict = {
+#                         "success": False,
+#                         "error": (
+#                             "patient_id is required "
+#                             "to update patient"
+#                         )
+#                     }
+
+#                 else:
+
+#                     try:
+
+#                         patient_id = uuid.UUID(
+#                             str(patient_id_str)
+#                         )
+
+#                         cleaned_args = {
+#                             key: value
+#                             for key, value in args.items()
+#                             if (
+#                                 value is not None
+#                                 and value != ""
+#                                 and key != "patient_id"
+#                             )
+#                         }
+
+#                         patient_update = PatientUpdate(
+#                             **cleaned_args
+#                         )
+
+#                         updated = (
+#                             patient_service.update_patient(
+#                                 db,
+#                                 patient_id,
+#                                 patient_update
+#                             )
+#                         )
+
+#                         if updated:
+
+#                             result_dict = {
+#                                 "success": True,
+#                                 "patient_id": str(
+#                                     updated.patient_id
+#                                 ),
+#                                 "message": (
+#                                     "Patient updated successfully"
+#                                 )
+#                             }
+
+#                         else:
+
+#                             result_dict = {
+#                                 "success": False,
+#                                 "error": (
+#                                     "No active patient found "
+#                                     f"with ID {patient_id_str}"
+#                                 )
+#                             }
+
+#                     except ValidationError as ve:
+
+#                         errors = []
+
+#                         for error in ve.errors():
+
+#                             loc_name = " -> ".join(
+#                                 str(location)
+#                                 for location in error["loc"]
+#                             )
+
+#                             msg = error["msg"]
+
+#                             if msg.startswith(
+#                                 "Value error, "
+#                             ):
+#                                 msg = msg.replace(
+#                                     "Value error, ",
+#                                     "",
+#                                     1
+#                                 )
+
+#                             errors.append(
+#                                 f"{loc_name}: {msg}"
+#                             )
+
+#                         result_dict = {
+#                             "success": False,
+#                             "error": (
+#                                 "Validation failed: "
+#                                 + "; ".join(errors)
+#                             )
+#                         }
+
+#                     except ValueError as ve:
+
+#                         result_dict = {
+#                             "success": False,
+#                             "error": str(ve)
+#                         }
+
+#                     except Exception as e:
+
+#                         result_dict = {
+#                             "success": False,
+#                             "error": (
+#                                 "Database update failure: "
+#                                 f"{str(e)}"
+#                             )
+#                         }
+
+#                 result_str = json.dumps(
+#                     result_dict
+#                 )
+
+#             # =================================================
+#             # UNKNOWN TOOL
+#             # =================================================
+
+#             else:
+
+#                 result_str = json.dumps({
+#                     "success": False,
+#                     "error": (
+#                         f"Unknown tool name: {tool_name}"
+#                     )
+#                 })
+
+#         except Exception as e:
+
+#             result_str = json.dumps({
+#                 "success": False,
+#                 "error": (
+#                     "Unexpected error during tool "
+#                     f"execution: {str(e)}"
+#                 )
+#             })
+
+#         # ----------------------------------------------------
+#         # Vapi tool result
+#         # ----------------------------------------------------
+
+#         results.append({
+#             "toolCallId": tool_id,
+#             "result": result_str
+#         })
+
+#     # ========================================================
+#     # RETURN RESULTS TO VAPI
+#     # ========================================================
+
+#     return {
+#         "results": results
+#     }
+
+
+
+# second new --------------------------------------------------------------------second new ----------------------------------------------------
 
 import json
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
@@ -166,7 +619,7 @@ router = APIRouter(prefix="/vapi-tools", tags=["vapi"])
 
 class VapiFunction(BaseModel):
     name: str
-    arguments: str
+    arguments: Any
 
 
 class VapiToolCall(BaseModel):
@@ -195,40 +648,16 @@ def handle_vapi_tools(
     """
     Handles Vapi function/tool calls.
 
-    Expected Vapi payload:
+    Supports arguments supplied either as:
+    
+    1. JSON string:
+       "{\"phone_number\": \"7328735133\"}"
 
-    {
-        "message": {
-            "toolCalls": [
-                {
-                    "id": "jvyqcpnp",
-                    "type": "function",
-                    "function": {
-                        "name": "lookup_patient_by_phone",
-                        "arguments": "{\"phone_number\":\"...\"}"
-                    }
-                }
-            ]
-        }
-    }
-
-    Returns:
-
-    {
-        "results": [
-            {
-                "toolCallId": "...",
-                "result": "..."
-            }
-        ]
-    }
+    2. JSON object:
+       {"phone_number": "7328735133"}
     """
 
     results = []
-
-    # ========================================================
-    # PROCESS EACH TOOL CALL
-    # ========================================================
 
     for tool_call in payload.message.toolCalls:
 
@@ -237,31 +666,35 @@ def handle_vapi_tools(
         raw_arguments = tool_call.function.arguments
 
         # ----------------------------------------------------
-        # Parse arguments
+        # Normalize arguments
         # ----------------------------------------------------
 
         try:
+
             if isinstance(raw_arguments, str):
                 args = json.loads(raw_arguments)
-            else:
+
+            elif isinstance(raw_arguments, dict):
                 args = raw_arguments
 
-        except json.JSONDecodeError as e:
+            else:
+                args = dict(raw_arguments)
+
+        except Exception as e:
 
             results.append({
                 "toolCallId": tool_id,
                 "result": json.dumps({
                     "success": False,
-                    "error": f"Invalid tool arguments JSON: {str(e)}"
+                    "error": (
+                        f"Invalid tool arguments: {str(e)}"
+                    )
                 })
             })
 
             continue
 
-        # ----------------------------------------------------
-        # Make sure arguments are a dictionary
-        # ----------------------------------------------------
-
+        # Make sure arguments are an object
         if not isinstance(args, dict):
 
             results.append({
@@ -306,7 +739,9 @@ def handle_vapi_tools(
 
                         result_dict = {
                             "found": True,
-                            "patient_id": str(patient.patient_id),
+                            "patient_id": str(
+                                patient.patient_id
+                            ),
                             "first_name": patient.first_name,
                             "last_name": patient.last_name
                         }
@@ -327,22 +762,21 @@ def handle_vapi_tools(
 
                 try:
 
-                    # Remove empty optional fields
                     cleaned_args = {
                         key: value
                         for key, value in args.items()
                         if value is not None and value != ""
                     }
 
-                    # Validate using your existing schema
                     patient_create = PatientCreate(
                         **cleaned_args
                     )
 
-                    # Check duplicate phone number
-                    existing = patient_service.get_patient_by_phone(
-                        db,
-                        patient_create.phone_number
+                    existing = (
+                        patient_service.get_patient_by_phone(
+                            db,
+                            patient_create.phone_number
+                        )
                     )
 
                     if existing:
@@ -360,9 +794,11 @@ def handle_vapi_tools(
 
                     else:
 
-                        patient = patient_service.create_patient(
-                            db,
-                            patient_create
+                        patient = (
+                            patient_service.create_patient(
+                                db,
+                                patient_create
+                            )
                         )
 
                         result_dict = {
@@ -432,9 +868,7 @@ def handle_vapi_tools(
 
             elif tool_name == "update_patient":
 
-                patient_id_str = args.get(
-                    "patient_id"
-                )
+                patient_id_str = args.get("patient_id")
 
                 if not patient_id_str:
 
@@ -549,9 +983,7 @@ def handle_vapi_tools(
                             )
                         }
 
-                result_str = json.dumps(
-                    result_dict
-                )
+                result_str = json.dumps(result_dict)
 
             # =================================================
             # UNKNOWN TOOL
@@ -577,7 +1009,7 @@ def handle_vapi_tools(
             })
 
         # ----------------------------------------------------
-        # Vapi tool result
+        # Return result for this tool call
         # ----------------------------------------------------
 
         results.append({
@@ -585,11 +1017,6 @@ def handle_vapi_tools(
             "result": result_str
         })
 
-    # ========================================================
-    # RETURN RESULTS TO VAPI
-    # ========================================================
-
     return {
         "results": results
     }
-
