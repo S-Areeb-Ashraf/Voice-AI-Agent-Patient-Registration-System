@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PatientForm from '../components/PatientForm';
 
 export default function PatientsPage({
   patients,
@@ -9,6 +10,14 @@ export default function PatientsPage({
   onDeletePatient,
   selectedPatientId,
 }) {
+  const [showCreate, setShowCreate] = React.useState(false);
+  const [refreshKey, setRefreshKey] = React.useState(0);
+
+  const onSaved = () => {
+    // trigger parent to refresh by calling onSearch with empty filters
+    onSearch({ last_name: '', date_of_birth: '', phone_number: '' });
+    setRefreshKey((k) => k + 1);
+  };
   const [lastName, setLastName] = useState('');
   const [dob, setDob] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
@@ -112,7 +121,10 @@ export default function PatientsPage({
               {loading ? 'Loading…' : `${patients.length} active patient${patients.length !== 1 ? 's' : ''} found`}
             </p>
           </div>
-          {loading && <div className="topbar-loader"></div>}
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button className="btn btn-primary" onClick={() => setShowCreate(true)}>＋ New Patient</button>
+            {loading && <div className="topbar-loader"></div>}
+          </div>
         </div>
         <div className="card-body-flush">
           {loading && patients.length === 0 ? (
@@ -209,6 +221,14 @@ export default function PatientsPage({
           )}
         </div>
       </div>
+      {showCreate && (
+        <div>
+          {/* lazy-load form component to keep initial bundle smaller */}
+          <React.Suspense fallback={<div className="modal"><div className="modal-card">Loading…</div></div>}>
+            <PatientForm initial={null} onClose={() => setShowCreate(false)} onSaved={onSaved} />
+          </React.Suspense>
+        </div>
+      )}
     </div>
   );
 }
