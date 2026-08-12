@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { patientsApi } from '../api/patientsApi';
+import PatientForm from '../components/PatientForm';
 
 export default function PatientDetailPage({ patientId, onBack, onDelete }) {
   const [patient, setPatient] = useState(null);
@@ -8,6 +9,7 @@ export default function PatientDetailPage({ patientId, onBack, onDelete }) {
   const [loadingTranscripts, setLoadingTranscripts] = useState(true);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
+  const [showEdit, setShowEdit] = useState(false);
 
   // Load patient data
   useEffect(() => {
@@ -138,6 +140,7 @@ export default function PatientDetailPage({ patientId, onBack, onDelete }) {
           </div>
         </div>
         <div className="patient-hero-right">
+          <button className="btn btn-ghost" onClick={() => setShowEdit(true)}>✎ Edit</button>
           <button
             className="btn btn-danger"
             onClick={() => {
@@ -151,6 +154,12 @@ export default function PatientDetailPage({ patientId, onBack, onDelete }) {
           </button>
         </div>
       </div>
+
+      {showEdit && (
+        <div>
+          <PatientForm initial={patient} onClose={() => setShowEdit(false)} onSaved={() => { setShowEdit(false); patientsApi.getPatientById(patientId).then(d => setPatient(d)); }} />
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="card" style={{ overflow: 'visible' }}>
