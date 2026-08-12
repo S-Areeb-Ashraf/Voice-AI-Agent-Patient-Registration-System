@@ -143,3 +143,13 @@ def create_call_transcript(
 def get_transcripts_by_patient_id(db: Session, patient_id) -> List[CallTranscript]:
     """Retrieves all call logs/transcripts associated with a patient."""
     return db.query(CallTranscript).filter(CallTranscript.patient_id == patient_id).order_by(CallTranscript.created_at.desc()).all()
+
+
+def get_all_transcripts(db: Session) -> List[CallTranscript]:
+    """Retrieves all call transcripts in the system, newest first."""
+    return db.query(CallTranscript).order_by(CallTranscript.created_at.desc()).all()
+
+
+def get_transcript_by_id(db: Session, transcript_id) -> Optional[CallTranscript]:
+    """Retrieve a single CallTranscript by its UUID."""
+    return db.query(CallTranscript).filter(CallTranscript.id == transcript_id).first()
