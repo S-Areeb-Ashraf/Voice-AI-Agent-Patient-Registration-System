@@ -1,20 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { patientsApi } from './api/patientsApi';
+import { callsApi } from './api/callsApi';
 import PatientsPage from './pages/PatientsPage';
 import PatientDetailPage from './pages/PatientDetailPage';
 import DashboardPage from './pages/DashboardPage';
+import VoiceCallsPage from './pages/VoiceCallsPage';
+import VoiceCallDetailPage from './pages/VoiceCallDetailPage';
 
 // Simple in-app router using state — no new dependencies
 export default function App() {
   // ── Router state ──
   // page: 'dashboard' | 'patients' | 'patient-detail'
   const [page, setPage] = useState('dashboard');
+  const [selectedCallId, setSelectedCallId] = useState(null);
   const [selectedPatientId, setSelectedPatientId] = useState(null);
 
   // ── Shared data state ──
   const [patients, setPatients] = useState([]);
   const [loadingPatients, setLoadingPatients] = useState(false);
   const [patientsError, setPatientsError] = useState('');
+  const [totalCalls, setTotalCalls] = useState(null);
 
   const fetchPatients = async (filters = {}) => {
     setLoadingPatients(true);
@@ -31,12 +36,23 @@ export default function App() {
 
   useEffect(() => {
     fetchPatients();
+    // fetch call count
+    (async () => {
+      try {
+        const calls = await callsApi.getCalls();
+        setTotalCalls(Array.isArray(calls) ? calls.length : 0);
+      } catch (e) {
+        setTotalCalls(0);
+      }
+    })();
   }, []);
 
   // ── Navigation ──
-  const navigate = (target, patientId = null) => {
+  const navigate = (target, id = null) => {
     setPage(target);
-    if (patientId) setSelectedPatientId(patientId);
+    // id may be patient id or call id based on target
+    if (target === 'patient-detail' && id) setSelectedPatientId(id);
+    if ((target === 'call-detail' || target === 'voicecalls') && id) setSelectedCallId(id);
     window.scrollTo(0, 0);
   };
 
@@ -44,6 +60,12 @@ export default function App() {
   const handleViewPatient = (id) => {
     setSelectedPatientId(id);
     setPage('patient-detail');
+    window.scrollTo(0, 0);
+  };
+
+  const handleViewCall = (id) => {
+    setSelectedCallId(id);
+    setPage('call-detail');
     window.scrollTo(0, 0);
   };
 
@@ -72,6 +94,8 @@ export default function App() {
     dashboard: { title: 'Dashboard Overview', subtitle: 'Welcome back — your clinic at a glance' },
     patients: { title: 'Patient Registry', subtitle: 'Search, filter, and manage registered patients' },
     'patient-detail': { title: 'Patient Chart', subtitle: 'Complete demographic, insurance & voice call history' },
+    voicecalls: { title: 'Voice Calls', subtitle: 'Browse recorded voice-call transcripts' },
+    'call-detail': { title: 'Call Details', subtitle: 'Transcript and metadata for a single call' },
   };
 
   const { title, subtitle } = pageTitles[page] || pageTitles.dashboard;
@@ -111,19 +135,9 @@ export default function App() {
 
           <span className="nav-section-label">System</span>
 
-          <button className="nav-item" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
+          <button className={`nav-item ${page === 'voicecalls' ? 'active' : ''}`} onClick={() => navigate('voicecalls')}>
             <span className="nav-icon">🎙️</span>
             Voice Calls
-          </button>
-
-          <button className="nav-item" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-            <span className="nav-icon">📋</span>
-            Reports
-          </button>
-
-          <button className="nav-item" style={{ opacity: 0.5, cursor: 'not-allowed' }}>
-            <span className="nav-icon">⚙️</span>
-            Settings
           </button>
         </nav>
 
@@ -159,6 +173,7 @@ export default function App() {
           {page === 'dashboard' && (
             <DashboardPage
               patients={patients}
+              totalCalls={totalCalls}
               onGoToPatients={() => navigate('patients')}
               onViewPatient={handleViewPatient}
             />
@@ -182,6 +197,14 @@ export default function App() {
               onBack={() => navigate('patients')}
               onDelete={handleDeletePatient}
             />
+          )}
+
+          {page === 'voicecalls' && (
+            <VoiceCallsPage onViewCall={(id) => handleViewCall(id)} />
+          )}
+
+          {page === 'call-detail' && selectedCallId && (
+            <VoiceCallDetailPage callId={selectedCallId} onBack={() => navigate('voicecalls')} />
           )}
         </main>
       </div>
