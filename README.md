@@ -17,12 +17,12 @@ sequenceDiagram
     participant API as FastAPI Web Service
     participant DB as Supabase Postgres
 
-    Caller->>Vapi: Dials phone number & speaks naturally
-    Vapi->>API: Mid-call tool lookup_patient_by_phone(phone_number)
-    API->>DB: Query by normalized phone number
-    DB-->>API: Return match status / info
-    API-->>Vapi: Return JSON results (read aloud by LLM)
-    Note over Vapi,Caller: Conversation continues; LLM collects details
+    Caller->Vapi: Dials phone number & speaks naturally
+    Vapi->API: Mid-call tool lookup_patient_by_phone(phone_number)
+    API->DB: Query by normalized phone number
+    DB-->API: Return match status / info
+    API-->Vapi: Return JSON results (read aloud by LLM)
+    Note over Vapi,Caller: Conversation continues;LLM collects details
     Caller->>Vapi: Confirms information is accurate
     Vapi->>API: Mid-call tool create_patient(full_fields)
     API->>API: Run server-side regex & logic validations
