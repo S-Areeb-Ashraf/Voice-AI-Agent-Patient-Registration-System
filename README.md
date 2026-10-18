@@ -3,7 +3,8 @@
 This repository contains a full-stack clinical intake system comprising a **FastAPI backend**, a **React (Vite) dashboard**, and integration endpoints for a **Vapi Voice Agent**. The voice agent acts as a phone intake receptionist, conversationally registering patients, validating information, and inserting records directly into a Supabase Postgres database.
 
 Number: +1 (346) 359 1357
-Note: Call to an AI Agent can only be made though US number. International calls not allowed.
+---
+`Note: Call to an AI Agent can only be made though US number. International calls not allowed.`
 
 ---
 
