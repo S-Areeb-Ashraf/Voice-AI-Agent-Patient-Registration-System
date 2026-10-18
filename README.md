@@ -9,6 +9,7 @@ This repository contains a full-stack clinical intake system comprising a **Fast
 The following flow illustrates how data is processed in this system:
 
 ```mermaid
+
 sequenceDiagram
     autonumber
     actor Caller as Caller (Patient)
