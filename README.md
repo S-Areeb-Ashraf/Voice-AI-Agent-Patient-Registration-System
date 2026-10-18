@@ -22,8 +22,8 @@ sequenceDiagram
     API->DB: Query by normalized phone number
     DB-->API: Return match status / info
     API-->Vapi: Return JSON results (read aloud by LLM)
-    Note over Vapi,Caller: Conversation continues;LLM collects details
-    Caller->>Vapi: Confirms information is accurate
+    Note over Vapi,Caller: Conversation continues;
+    LLM collects details Caller->>Vapi: Confirms information is accurate
     Vapi->>API: Mid-call tool create_patient(full_fields)
     API->>API: Run server-side regex & logic validations
     alt Validation Fails
