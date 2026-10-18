@@ -12,9 +12,9 @@ The following flow illustrates how data is processed in this system:
 sequenceDiagram
     autonumber
     actor Caller as Caller (Patient)
-    participant Vapi as Vapi (Gemini LLM & Telephony)
+    participant Vapi as Vapi (Gemini LLM)
     participant API as FastAPI Web Service
-    database DB as Supabase Postgres
+    participant DB as Supabase Postgres
 
     Caller->>Vapi: Dials phone number & speaks naturally
     Vapi->>API: Mid-call tool lookup_patient_by_phone(phone_number)
