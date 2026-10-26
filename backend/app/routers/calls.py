@@ -34,6 +34,8 @@ def read_call_messages(transcript_id: uuid.UUID, db: Session = Depends(get_db)):
     t = patient_service.get_transcript_by_id(db, transcript_id)
     if not t:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Call transcript not found")
-    messages = patient_service.get_messages_by_transcript_id(db, transcript_id)
+    # Backfills the turns from the saved raw transcript for calls that were
+    # stored before the per-turn table existed (or before artifact parsing).
+    messages = patient_service.ensure_call_messages(db, t)
     data = [CallMessageResponse.model_validate(m) for m in messages]
     return {"data": data, "error": None}

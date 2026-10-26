@@ -128,7 +128,10 @@ from sqlalchemy.orm import Session
 from app.database import SessionLocal
 from app.config import settings
 from app.services import patient_service
-from app.utils.conversation import parse_vapi_conversation
+from app.utils.conversation import (
+    build_transcript_text,
+    parse_vapi_conversation,
+)
 from app.utils.logging_config import logger
 
 
@@ -228,39 +231,78 @@ async def handle_vapi_webhook(
 
     # ---------------------------------------------------------
     # 6. Extract call information
+    #
+    # NOTE: the current Vapi end-of-call-report keeps the conversation
+    # under `message.artifact` (artifact.messages for the per-turn script,
+    # artifact.transcript for the combined text). The top-level keys are
+    # legacy aliases, so both locations are read.
     # ---------------------------------------------------------
-    call_obj = message.get("call", {})
+    call_obj = message.get("call", {}) or {}
+    if not isinstance(call_obj, dict):
+        call_obj = {}
 
-    vapi_call_id = call_obj.get(
-        "id",
-        "unknown_call_id"
+    artifact = message.get("artifact") or {}
+    if not isinstance(artifact, dict):
+        artifact = {}
+
+    call_artifact = call_obj.get("artifact") or {}
+    if not isinstance(call_artifact, dict):
+        call_artifact = {}
+
+    vapi_call_id = (
+        call_obj.get("id")
+        or message.get("callId")
+        or "unknown_call_id"
     )
 
-    customer_obj = call_obj.get(
-        "customer",
-        {}
+    customer_obj = call_obj.get("customer", {}) or {}
+    if not isinstance(customer_obj, dict):
+        customer_obj = {}
+
+    caller_phone = customer_obj.get("number") or message.get("customerNumber")
+
+    # Combined text transcript: message → artifact → call.artifact
+    transcript = (
+        message.get("transcript")
+        or artifact.get("transcript")
+        or call_artifact.get("transcript")
     )
 
-    caller_phone = customer_obj.get(
-        "number"
+    # AI call summary lives on message.analysis in current payloads.
+    analysis = message.get("analysis") or {}
+    if not isinstance(analysis, dict):
+        analysis = {}
+
+    call_analysis = call_obj.get("analysis") or {}
+    if not isinstance(call_analysis, dict):
+        call_analysis = {}
+
+    summary = (
+        message.get("summary")
+        or analysis.get("summary")
+        or artifact.get("summary")
+        or call_analysis.get("summary")
     )
 
-    transcript = message.get(
-        "transcript"
+    call_status = (
+        call_obj.get("status")
+        or message.get("endedReason")
+        or "ended"
     )
 
-    summary = message.get(
-        "summary"
+    # Structured per-turn conversation script (assistant vs user).
+    structured_messages = (
+        message.get("messages")
+        or artifact.get("messages")
+        or call_artifact.get("messages")
     )
 
-    call_status = call_obj.get(
-        "status",
-        "ended"
-    )
-
-    # Structured per-turn conversation script (assistant vs user), when Vapi provides it.
-    structured_messages = message.get(
-        "messages"
+    logger.info(
+        "End-of-call report received: "
+        f"call={vapi_call_id}, "
+        f"transcript_chars={len(transcript) if isinstance(transcript, str) else 0}, "
+        "messages="
+        f"{len(structured_messages) if isinstance(structured_messages, list) else 0}"
     )
 
     # ---------------------------------------------------------
@@ -341,7 +383,31 @@ async def handle_vapi_webhook(
                 )
 
         # -----------------------------------------------------
-        # 11. Save transcript to database
+        # 11. Parse the conversation script (AI vs patient)
+        #
+        # Parsed before the transcript is saved so the combined text can be
+        # rebuilt from the turns when Vapi only sends artifact.messages.
+        # -----------------------------------------------------
+        turns = parse_vapi_conversation(
+            structured_messages,
+            transcript,
+        )
+
+        if not turns:
+            logger.warning(
+                "No conversation turns could be parsed for call "
+                f"{vapi_call_id}. Payload keys: {list(message.keys())}"
+            )
+
+        if not transcript and turns:
+            transcript = build_transcript_text(turns)
+            logger.info(
+                "Rebuilt the raw transcript from parsed turns for call "
+                f"{vapi_call_id}"
+            )
+
+        # -----------------------------------------------------
+        # 12. Save transcript to database
         # -----------------------------------------------------
         try:
 
@@ -363,15 +429,10 @@ async def handle_vapi_webhook(
             )
 
             # -------------------------------------------------
-            # 11b. Save the per-turn conversation script
+            # 12b. Save the per-turn conversation script
             # (AI vs patient) linked to the transcript row.
             # -------------------------------------------------
             try:
-                turns = parse_vapi_conversation(
-                    structured_messages,
-                    transcript,
-                )
-
                 if turns:
                     saved = patient_service.create_call_messages(
                         db=db,
@@ -390,6 +451,7 @@ async def handle_vapi_webhook(
                     )
 
             except Exception as msg_err:
+                db.rollback()
                 logger.error(
                     "Database write failure while saving "
                     f"call conversation script: {str(msg_err)}"
@@ -397,6 +459,9 @@ async def handle_vapi_webhook(
                 # Don't fail the webhook for script storage problems.
 
         except Exception as e:
+
+            # Rollback so the session stays usable for the message insert.
+            db.rollback()
 
             logger.error(
                 "Database write failure while saving "

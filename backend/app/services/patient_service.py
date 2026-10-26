@@ -1,9 +1,11 @@
 from datetime import datetime, timezone, date
 from typing import Optional, List, Dict
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from app.models import Patient, CallTranscript, CallMessage
 from app.schemas import PatientCreate, PatientUpdate
+from app.utils.conversation import parse_vapi_conversation
 from app.utils.logging_config import logger
 from app.utils.validators import validate_phone, validate_dob
 
@@ -183,3 +185,42 @@ def get_messages_by_transcript_id(db: Session, transcript_id) -> List[CallMessag
         .order_by(CallMessage.turn_index.asc())
         .all()
     )
+
+
+def ensure_call_messages(db: Session, transcript: CallTranscript) -> List[CallMessage]:
+    """Return the stored conversation script, backfilling it if missing.
+
+    Calls that finished before the migration — or before the webhook read the
+    `artifact` payload — have their raw transcript stored but no per-turn rows.
+    Those turns are parsed from the saved transcript on first access, so old
+    calls fill the table instead of showing an empty script.
+    """
+    existing = get_messages_by_transcript_id(db, transcript.id)
+    if existing:
+        return existing
+
+    if not transcript.transcript or not str(transcript.transcript).strip():
+        return []
+
+    turns = parse_vapi_conversation(None, transcript.transcript)
+    if not turns:
+        return []
+
+    try:
+        create_call_messages(db, transcript.id, turns)
+        logger.info(
+            f"Backfilled {len(turns)} conversation turns from the stored "
+            f"transcript for call transcript ID={transcript.id}"
+        )
+    except IntegrityError:
+        # Another request already inserted them — just keep the stored rows.
+        db.rollback()
+    except Exception as e:
+        db.rollback()
+        logger.error(
+            f"Could not backfill conversation turns for transcript "
+            f"ID={transcript.id}: {str(e)}"
+        )
+        return []
+
+    return get_messages_by_transcript_id(db, transcript.id)
