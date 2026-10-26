@@ -2,6 +2,10 @@
 
 This repository contains a full-stack clinical intake system comprising a **FastAPI backend**, a **React (Vite) dashboard**, and integration endpoints for a **Vapi Voice Agent**. The voice agent acts as a phone intake receptionist, conversationally registering patients, validating information, and inserting records directly into a Supabase Postgres database.
 
+Number: +1 (346) 359 1357
+---
+`Note: Call to an AI Agent can only be made though US number. International calls not allowed.`
+
 ---
 
 ## 🏛️ System Architecture
@@ -9,6 +13,7 @@ This repository contains a full-stack clinical intake system comprising a **Fast
 The following flow illustrates how data is processed in this system:
 
 ```mermaid
+
 sequenceDiagram
     autonumber
     actor Caller as Caller (Patient)
@@ -16,13 +21,13 @@ sequenceDiagram
     participant API as FastAPI Web Service
     participant DB as Supabase Postgres
 
-    Caller->>Vapi: Dials phone number & speaks naturally
-    Vapi->>API: Mid-call tool lookup_patient_by_phone(phone_number)
-    API->>DB: Query by normalized phone number
-    DB-->>API: Return match status / info
-    API-->>Vapi: Return JSON results (read aloud by LLM)
-    Note over Vapi,Caller: Conversation continues; LLM collects details
-    Caller->>Vapi: Confirms information is accurate
+    Caller->Vapi: Dials phone number & speaks naturally
+    Vapi->API: Mid-call tool lookup_patient_by_phone(phone_number)
+    API->DB: Query by normalized phone number
+    DB-->API: Return match status / info
+    API-->Vapi: Return JSON results (read aloud by LLM)
+    Note over Vapi,Caller: Conversation continues;
+    LLM collects details Caller->>Vapi: Confirms information is accurate
     Vapi->>API: Mid-call tool create_patient(full_fields)
     API->>API: Run server-side regex & logic validations
     alt Validation Fails
